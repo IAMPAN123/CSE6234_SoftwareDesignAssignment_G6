@@ -1,9 +1,9 @@
 # CSE6234_SoftwareDesignAssignment_G6
 
-Title          : E-commerce
-Project Name   : 
-Language       : Java/JavaSwing
-Due Date       : 15 May 2025
+Title          : E-commerce  
+Project Name   :   
+Language       : Java/JavaSwing  
+Due Date       : 15 May 2025  
 
 Team Members
 1. Pan Han Cheng
