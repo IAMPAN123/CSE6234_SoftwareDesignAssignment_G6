@@ -1,0 +1,17 @@
+# --- Maven Build Folder ---
+# This contains the compiled .class files and the final .jar. 
+# It is large and unnecessary to upload.
+target/
+
+# --- IDE Specific Files (VS Code / IntelliJ / Eclipse) ---
+# These store your personal window layout and local paths.
+.settings/
+.classpath/
+.project/
+.factorypath
+.vscode/
+bin/
+
+# --- Operating System Junk ---
+Thumbs.db
+.DS_Store

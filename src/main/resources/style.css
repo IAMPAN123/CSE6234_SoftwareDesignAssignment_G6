@@ -1,0 +1,53 @@
+.root { -fx-background-color: #F8FAFB; }
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 4);
+}
+.button-charge {
+    -fx-background-color: #84C5C5;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8;
+    -fx-padding: 12 25;
+}
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 15, 0, 0, 5);
+}
+.product-card{
+    -fx-background-color:white;
+    -fx-background-radius: 12;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 4);
+
+    -fx-pref-width: 190;
+    -fx-min-width: 180;
+    -fx-max-width: 200;
+}
+.teal-button {
+    -fx-background-color: #008B8B;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8;
+    -fx-padding: 8 20;
+}
+.teal-button:hover {
+    -fx-background-color: #007777; /* SLightly darker on hover */
+}
+/* Large Charge Button */
+.button-charge {
+    -fx-background-color: #84C5C5;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8;
+    -fx-padding: 12 25;
+}
+
+/* Stock label coloring */
+.stock-critical {
+    -fx-text-fill: #E74C3C; /* Red for low stock */
+}
