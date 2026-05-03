@@ -1,6 +1,10 @@
 package com.pos;
 
 import atlantafx.base.theme.PrimerLight;
+import com.pos.db.DatabaseConfig;
+import com.pos.db.ProductDAO;
+import com.pos.model.Product;
+import com.pos.ui.AdminPanel;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -16,47 +20,65 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.geometry.Pos;
 import javafx.scene.control.Separator;
+import java.sql.SQLException;
+import java.util.List;
 
 public class App extends Application {
+    private ProductDAO productDAO;
+    private FlowPane productGrid;
+    private List<Product> products;
+
     @Override
     public void start(Stage stage) {
+        try {
+            DatabaseConfig.getInstance();
+            productDAO = new ProductDAO();
+            products = productDAO.getAllProducts();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
         Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
 
-        
+
         //Top Navbar
         HBox navbar = new HBox();
         navbar.setPadding(new Insets(15,30,15,30));
         navbar.setStyle("-fx-background-color: white; -fx-border-color: #EEE; -fx-border-width:0 0 1 0;");
         Label logo = new Label("Group 6 Shop");
         logo.setStyle("-fx-font-weight: bold; -fx-font-size: 18px;");
-        navbar.getChildren().add(logo);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button adminBtn = new Button("Admin Panel");
+        adminBtn.getStyleClass().add("teal-button");
+        adminBtn.setOnAction(e -> {
+            AdminPanel admin = new AdminPanel(() -> refreshProducts(stage));
+            admin.show();
+        });
+
+        navbar.getChildren().addAll(logo, spacer, adminBtn);
 
         // Left Column
         VBox leftCol = new VBox(25);
         leftCol.setPadding(new Insets(30, 50, 30, 50));
         HBox.setHgrow(leftCol, Priority.ALWAYS);
-        
+
         VBox membership = createMembershipSection();
 
         VBox addItem = createAddItemSection();
 
-        
+
 
         //Product Grid
-        FlowPane productGrid = new FlowPane(15,15);
+        productGrid = new FlowPane(15,15);
         productGrid.setPadding(new Insets(10, 0, 0, 0));
 
-        productGrid.getChildren().addAll(
-            createComplexProductCard("8801234500011", "Espresso Beans 250g", "RM 18.50", "24 LEFT"),
-            createComplexProductCard("8801234500028", "Oat Milk 1L", "RM 7.90", "8 LEFT"),
-            createComplexProductCard("8801234500035", "Croissant", "RM 4.20", "30 LEFT"),
-            createComplexProductCard("8801234500042", "Dark Chocolate Bar", "RM 6.50", "5 LEFT"),
-            createComplexProductCard("8801234500059", "Sparkling Water 500ml", "RM 3.00", "50 LEFT"),
-            createComplexProductCard("8801234500066", "Avocado", "RM 4.50", "18 LEFT")
-        );
+        refreshProductGrid();
 
-        leftCol.getChildren().addAll(membership, productGrid,addItem);
-        
+        leftCol.getChildren().addAll(membership, productGrid, addItem);
+
 
         // Right Column (Cart)
         VBox cart = new VBox(20);
@@ -67,17 +89,17 @@ public class App extends Application {
         Label cartTitle = new Label("Cart (0)");
         cartTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
-        Region spacer = new Region();
-        VBox.setVgrow(spacer, Priority.ALWAYS);
+        Region cartSpacer = new Region();
+        VBox.setVgrow(cartSpacer, Priority.ALWAYS);
 
         VBox cartSummary = createCartSummary();
-        
+
         Button chargeBtn = new Button("Charge RM 0.00");
         chargeBtn.getStyleClass().add("button-charge");
         chargeBtn.setMaxWidth(Double.MAX_VALUE);
 
-        cart.getChildren().addAll( cartTitle, spacer, cartSummary, chargeBtn);
-        
+        cart.getChildren().addAll( cartTitle, cartSpacer, cartSummary, chargeBtn);
+
         //Main Layout
         HBox mainLayout = new HBox(20, leftCol, cart);
         mainLayout.setStyle("-fx-background-color: #F8FAFB;");
@@ -87,7 +109,7 @@ public class App extends Application {
         root.setCenter(mainLayout);
 
         Scene scene = new Scene(root, 1200, 800);
-        try{ 
+        try{
         scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
         } catch (Exception e) {
             System.out.println("Stylesheet not found: " + e.getMessage());
@@ -98,14 +120,27 @@ public class App extends Application {
         stage.show();
 
 
-        
+
 
     }
 
-    
 
-    //helper method
-    
+
+    private void refreshProducts(Stage stage) {
+        try {
+            products = productDAO.getAllProducts();
+            refreshProductGrid();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void refreshProductGrid() {
+        productGrid.getChildren().clear();
+        for (Product product : products) {
+            productGrid.getChildren().add(createProductCard(product));
+        }
+    }
 
     private VBox createMembershipSection(){
         VBox box = new VBox(15);
@@ -191,6 +226,40 @@ public class App extends Application {
         return box;
     }
 
+    private VBox createProductCard(Product product) {
+        VBox box = new VBox(8);
+        box.getStyleClass().add("product-card");
+
+        Label barcodeLabel = new Label(product.getBarcode());
+        barcodeLabel.setStyle("-fx-font-size:11px; -fx-text-fill: #AAA;");
+
+        Label nameLabel = new Label(product.getName());
+        nameLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #AAA;");
+        nameLabel.setWrapText(true);
+
+        HBox bottomRow = new HBox();
+        bottomRow.setAlignment(Pos.BOTTOM_LEFT);
+
+        Label priceLabel = new Label(String.format("RM %.2f", product.getPrice()));
+        priceLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #008B8B;");
+
+        Region bottomSpacer = new Region ();
+        HBox.setHgrow(bottomSpacer, Priority.ALWAYS);
+
+        String stockText = product.getStock() + " LEFT";
+        Label stockLabel = new Label(stockText);
+        stockLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #AAA;");
+
+        if (product.getStock() < 10) {
+            stockLabel.getStyleClass().add("stock-critical");
+        }
+
+        bottomRow.getChildren().addAll(priceLabel, bottomSpacer, stockLabel);
+
+        box.getChildren().addAll(barcodeLabel, nameLabel, bottomRow);
+        return box;
+    }
+
     private VBox createComplexProductCard(String barcode, String name, String price, String stock){
         VBox box = new VBox(8);
         box.getStyleClass().add("product-card");
@@ -219,7 +288,7 @@ public class App extends Application {
 
         if (stock.contains("LEFT")&& stock.length() < 9) {
             stockLabel.getStyleClass().add("stock-critical");
-        } 
+        }
 
         bottomRow.getChildren().addAll(priceLabel, bottomSpacer, stockLabel);
 
