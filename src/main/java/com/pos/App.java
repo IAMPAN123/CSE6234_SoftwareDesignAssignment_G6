@@ -102,7 +102,7 @@ public class App extends Application {
             () -> stage.setScene(shopScene), // Back button returns to Shop
             (success) -> {
                 if (success) {
-                    AdminPanel admin = new AdminPanel(() -> refreshProducts(stage));
+                    AdminPanel admin = new AdminPanel(this::refreshProducts);
                     admin.show();
                     stage.setScene(shopScene); // Stay on Shop screen after Admin launches
                 }
@@ -126,7 +126,7 @@ public class App extends Application {
 
     // --- Navigation & Refresh Helpers ---
 
-    private void refreshProducts(Stage stage) {
+    private void refreshProducts() {
         try {
             products = productDAO.getAllProducts();
             refreshProductGrid();
@@ -213,8 +213,12 @@ public class App extends Application {
     }
 
     private void handleIncreaseQuantity(com.pos.model.CartItem cartItem) {
-        cartItem.incrementQuantity();
-        updateCartDisplay();
+        if (cartItem.canIncrementQuantity()) {
+            cartItem.incrementQuantity();
+            updateCartDisplay();
+        } else {
+            showAlert("Cannot add more. Maximum stock for " + cartItem.getProduct().getName() + " is " + cartItem.getProduct().getStock());
+        }
     }
 
     private void handleDecreaseQuantity(com.pos.model.CartItem cartItem) {
@@ -273,6 +277,7 @@ public class App extends Application {
                 dialogStage.close();
 
                 new ReceiptPanel(receipt);
+                refreshProducts();  // Refresh products to update stock display
                 updateCartDisplay();
             } catch (SQLException ex) {
                 showAlert("Error during checkout: " + ex.getMessage());
@@ -482,8 +487,12 @@ public class App extends Application {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Label stock = new Label(product.getStock() + " LEFT");
-        stock.setStyle("-fx-font-size: 12px; -fx-text-fill: #AAA;");
+        String stockText = product.getStock() > 0 ? product.getStock() + " LEFT" : "OUT OF STOCK";
+        Label stock = new Label(stockText);
+        String stockStyle = product.getStock() > 0 
+            ? "-fx-font-size: 12px; -fx-text-fill: #AAA;" 
+            : "-fx-font-size: 12px; -fx-text-fill: #FF6B6B; -fx-font-weight: bold;";
+        stock.setStyle(stockStyle);
 
         bottom.getChildren().addAll(price, spacer, stock);
         box.getChildren().addAll(barcode, name, bottom);

@@ -25,6 +25,10 @@ public class CartItem {
         this.quantity++;
     }
 
+    public boolean canIncrementQuantity() {
+        return quantity < product.getStock();
+    }
+
     public double getSubtotal() {
         return product.getPrice() * quantity;
     }
