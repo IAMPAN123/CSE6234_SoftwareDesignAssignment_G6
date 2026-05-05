@@ -12,6 +12,7 @@ import com.pos.model.ShoppingCart;
 import com.pos.service.CheckoutFacade;
 import com.pos.ui.AdminPanel;
 import com.pos.ui.LoginPanel;
+import com.pos.ui.MembershipPage;
 import com.pos.ui.ReceiptPanel;
 
 import atlantafx.base.theme.PrimerLight;
@@ -41,6 +42,7 @@ public class App extends Application {
     private CheckoutFacade checkout;
     private FlowPane productGrid;
     private List<Product> products;
+    private Button registerBtn;
     private Label cartTitle;
     private Label subtotalLabel;
     private Label discountLabel;
@@ -88,9 +90,12 @@ public class App extends Application {
         BorderPane root = new BorderPane();
         root.setTop(navbar);
         root.setCenter(mainLayout);
-
         Scene shopScene = new Scene(root, 1200, 800);
         applyStylesheet(shopScene);
+
+        MembershipPage membershipPage = new MembershipPage(() -> stage.setScene(shopScene));
+        Scene membershipScene = new Scene(membershipPage.getView(), 1200, 800);
+        applyStylesheet(membershipScene);
 
         // --- 4. Setup Login Page & Scene ---
         LoginPanel loginPanel = new LoginPanel(
@@ -109,6 +114,10 @@ public class App extends Application {
         // --- 5. Link Admin Button to Login Scene ---
         Button adminBtn = (Button) navbar.getChildren().get(2);
         adminBtn.setOnAction(e -> stage.setScene(loginScene));
+
+        if (registerBtn != null) {
+        registerBtn.setOnAction(e -> stage.setScene(membershipScene));
+    }
 
         stage.setTitle("Group 6 Shop");
         stage.setScene(shopScene);
@@ -332,7 +341,10 @@ public class App extends Application {
         Label helpText = new Label("Try ali@example.com (Gold, 10% off).");
         helpText.setStyle("-fx-text-fill: #777; -fx-font-size: 13px;");
 
-        box.getChildren().addAll(titleBox, searchBox, helpText);
+        registerBtn = new Button("New Member");
+        registerBtn.getStyleClass().add("button-outline");
+        box.getChildren().addAll(titleBox, searchBox, helpText, registerBtn);
+
         return box;
     }
 
