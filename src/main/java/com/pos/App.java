@@ -1,10 +1,15 @@
 package com.pos;
 
-import atlantafx.base.theme.PrimerLight;
+import java.sql.SQLException;
+import java.util.List;
+
 import com.pos.db.DatabaseConfig;
 import com.pos.db.ProductDAO;
 import com.pos.model.Product;
 import com.pos.ui.AdminPanel;
+import com.pos.ui.LoginPanel;
+
+import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -20,10 +25,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.geometry.Pos;
-import javafx.scene.control.Separator;
-import java.sql.SQLException;
-import java.util.List;
 
 public class App extends Application {
     private ProductDAO productDAO;
@@ -32,6 +33,7 @@ public class App extends Application {
 
     @Override
     public void start(Stage stage) {
+        // 1. Initialize Database
         try {
             DatabaseConfig.getInstance();
             productDAO = new ProductDAO();
@@ -40,69 +42,24 @@ public class App extends Application {
             e.printStackTrace();
         }
 
+        // 2. Set Theme
         Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
 
-
-        //Top Navbar
-        HBox navbar = new HBox();
-        navbar.setPadding(new Insets(15,30,15,30));
-        navbar.setStyle("-fx-background-color: white; -fx-border-color: #EEE; -fx-border-width:0 0 1 0;");
-        Label logo = new Label("Group 6 Shop");
-        logo.setStyle("-fx-font-weight: bold; -fx-font-size: 18px;");
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        Button adminBtn = new Button("Admin Panel");
-        adminBtn.getStyleClass().add("teal-button");
-        adminBtn.setOnAction(e -> {
-            AdminPanel admin = new AdminPanel(() -> refreshProducts(stage));
-            admin.show();
-        });
-
-        navbar.getChildren().addAll(logo, spacer, adminBtn);
-
-        // Left Column
+        // --- 3. Build Main POS Layout ---
+        HBox navbar = createNavbar(stage);
+        
         VBox leftCol = new VBox(25);
         leftCol.setPadding(new Insets(30, 50, 30, 50));
         HBox.setHgrow(leftCol, Priority.ALWAYS);
 
-        VBox membership = createMembershipSection();
-
-        VBox addItem = createAddItemSection();
-
-
-
-        //Product Grid
-        productGrid = new FlowPane(15,15);
+        productGrid = new FlowPane(15, 15);
         productGrid.setPadding(new Insets(10, 0, 0, 0));
-
         refreshProductGrid();
 
-        leftCol.getChildren().addAll(membership, productGrid, addItem);
+        leftCol.getChildren().addAll(createMembershipSection(), productGrid, createAddItemSection());
 
+        VBox cart = createCartSection();
 
-        // Right Column (Cart)
-        VBox cart = new VBox(20);
-        cart.getStyleClass().add("card");
-        cart.setPrefWidth(380);
-        cart.setPadding(new Insets(25));
-
-        Label cartTitle = new Label("Cart (0)");
-        cartTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-
-        Region cartSpacer = new Region();
-        VBox.setVgrow(cartSpacer, Priority.ALWAYS);
-
-        VBox cartSummary = createCartSummary();
-
-        Button chargeBtn = new Button("Charge RM 0.00");
-        chargeBtn.getStyleClass().add("button-charge");
-        chargeBtn.setMaxWidth(Double.MAX_VALUE);
-
-        cart.getChildren().addAll( cartTitle, cartSpacer, cartSummary, chargeBtn);
-
-        //Main Layout
         HBox mainLayout = new HBox(20, leftCol, cart);
         mainLayout.setStyle("-fx-background-color: #F8FAFB;");
 
@@ -110,23 +67,33 @@ public class App extends Application {
         root.setTop(navbar);
         root.setCenter(mainLayout);
 
-        Scene scene = new Scene(root, 1200, 800);
-        try{
-        scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
-        } catch (Exception e) {
-            System.out.println("Stylesheet not found: " + e.getMessage());
-        }
+        Scene shopScene = new Scene(root, 1200, 800);
+        applyStylesheet(shopScene);
+
+        // --- 4. Setup Login Page & Scene ---
+        LoginPanel loginPanel = new LoginPanel(
+            () -> stage.setScene(shopScene), // Back button returns to Shop
+            (success) -> {
+                if (success) {
+                    AdminPanel admin = new AdminPanel(() -> refreshProducts(stage));
+                    admin.show();
+                    stage.setScene(shopScene); // Stay on Shop screen after Admin launches
+                }
+            }
+        );
+        Scene loginScene = new Scene(loginPanel.getView(), 1200, 800);
+        applyStylesheet(loginScene);
+
+        // --- 5. Link Admin Button to Login Scene ---
+        Button adminBtn = (Button) navbar.getChildren().get(2); 
+        adminBtn.setOnAction(e -> stage.setScene(loginScene));
 
         stage.setTitle("Group 6 Shop");
         stage.setScene(shopScene);
         stage.show();
-
-
-
-
     }
 
-
+    // --- Navigation & Refresh Helpers ---
 
     private void refreshProducts(Stage stage) {
         try {
@@ -258,70 +225,27 @@ public class App extends Application {
         VBox box = new VBox(8);
         box.getStyleClass().add("product-card");
 
-        Label barcodeLabel = new Label(product.getBarcode());
-        barcodeLabel.setStyle("-fx-font-size:11px; -fx-text-fill: #AAA;");
+        Label barcode = new Label(product.getBarcode());
+        barcode.setStyle("-fx-font-size:11px; -fx-text-fill: #AAA;");
+        
+        Label name = new Label(product.getName());
+        name.setStyle("-fx-font-size: 11px; -fx-text-fill: #AAA;");
+        name.setWrapText(true);
 
-        Label nameLabel = new Label(product.getName());
-        nameLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #AAA;");
-        nameLabel.setWrapText(true);
+        HBox bottom = new HBox();
+        bottom.setAlignment(Pos.BOTTOM_LEFT);
+        Label price = new Label(String.format("RM %.2f", product.getPrice()));
+        price.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #008B8B;");
 
-        HBox bottomRow = new HBox();
-        bottomRow.setAlignment(Pos.BOTTOM_LEFT);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Label stock = new Label(product.getStock() + " LEFT");
+        stock.setStyle("-fx-font-size: 12px; -fx-text-fill: #AAA;");
 
-        Label priceLabel = new Label(String.format("RM %.2f", product.getPrice()));
-        priceLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #008B8B;");
-
-        Region bottomSpacer = new Region ();
-        HBox.setHgrow(bottomSpacer, Priority.ALWAYS);
-
-        String stockText = product.getStock() + " LEFT";
-        Label stockLabel = new Label(stockText);
-        stockLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #AAA;");
-
-        if (product.getStock() < 10) {
-            stockLabel.getStyleClass().add("stock-critical");
-        }
-
-        bottomRow.getChildren().addAll(priceLabel, bottomSpacer, stockLabel);
-
-        box.getChildren().addAll(barcodeLabel, nameLabel, bottomRow);
+        bottom.getChildren().addAll(price, spacer, stock);
+        box.getChildren().addAll(barcode, name, bottom);
         return box;
     }
 
-    private VBox createComplexProductCard(String barcode, String name, String price, String stock){
-        VBox box = new VBox(8);
-        box.getStyleClass().add("product-card");
-
-        //Barcode
-        Label barcodeLabel = new Label(barcode);
-        barcodeLabel.setStyle("-fx-font-size:11px; -fx-text-fill: #AAA;");
-
-        //Product Name
-        Label nameLabel = new Label(name);
-        nameLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #AAA;");
-        nameLabel.setWrapText(true);
-
-        //Price and stock
-        HBox bottomRow = new HBox();
-        bottomRow.setAlignment(Pos.BOTTOM_LEFT);
-
-        Label priceLabel = new Label(price);
-        priceLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #008B8B;");
-
-        Region bottomSpacer = new Region ();
-        HBox.setHgrow(bottomSpacer, Priority.ALWAYS);
-
-        Label stockLabel = new Label(stock);
-        stockLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #AAA;");
-
-        if (stock.contains("LEFT")&& stock.length() < 9) {
-            stockLabel.getStyleClass().add("stock-critical");
-        }
-
-        bottomRow.getChildren().addAll(priceLabel, bottomSpacer, stockLabel);
-
-        box.getChildren().addAll(barcodeLabel, nameLabel, bottomRow);
-        return box;
-    }
     public static void main(String[] args) { launch(args); }
 }
