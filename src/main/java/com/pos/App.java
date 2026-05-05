@@ -3,9 +3,11 @@ package com.pos;
 import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
@@ -94,7 +96,7 @@ public class App extends Application {
         }
 
         stage.setTitle("Group 6 Shop");
-        stage.setScene(scene);
+        stage.setScene(shopScene);
         stage.show();
 
 
@@ -107,32 +109,55 @@ public class App extends Application {
     //helper method
     
 
-    private VBox createMembershipSection(){
+    private void applyStylesheet(Scene scene) {
+        try {
+            scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+        } catch (Exception e) {
+            System.out.println("Stylesheet error: " + e.getMessage());
+        }
+    }
+
+    // --- UI Component Helpers ---
+
+    private HBox createNavbar(Stage stage) {
+        HBox navbar = new HBox();
+        navbar.setPadding(new Insets(15, 30, 15, 30));
+        navbar.setStyle("-fx-background-color: white; -fx-border-color: #EEE; -fx-border-width:0 0 1 0;");
+        
+        Label logo = new Label("Group 6 Shop");
+        logo.setStyle("-fx-font-weight: bold; -fx-font-size: 18px;");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button adminBtn = new Button("Admin Panel");
+        adminBtn.getStyleClass().add("teal-button");
+
+        navbar.getChildren().addAll(logo, spacer, adminBtn);
+        return navbar;
+    }
+
+    private VBox createMembershipSection() {
         VBox box = new VBox(15);
         box.getStyleClass().add("card");
         box.setPadding(new Insets(25));
 
-        //Membership
-        HBox membershipTitleBox = new HBox(10);
-        membershipTitleBox.setAlignment(Pos.CENTER_LEFT);
-        Label userIcon = new Label ("👤");
-        Label membershipLabel = new Label("Membership (optional)");
-        membershipTitleBox.getChildren().addAll (userIcon, membershipLabel);
+        HBox titleBox = new HBox(10);
+        titleBox.setAlignment(Pos.CENTER_LEFT);
+        titleBox.getChildren().addAll(new Label("👤"), new Label("Membership (optional)"));
 
-        //Search Field Box
-        HBox searchFieldHBox = new HBox(10);
+        HBox searchBox = new HBox(10);
         TextField memberSearch = new TextField();
         memberSearch.setPromptText("Type member name, email, or ID...");
         HBox.setHgrow(memberSearch, Priority.ALWAYS);
-
         Button findBtn = new Button("Find");
         findBtn.getStyleClass().add("teal-button");
-        searchFieldHBox.getChildren().addAll(memberSearch, findBtn);
+        searchBox.getChildren().addAll(memberSearch, findBtn);
 
-        Label examplesLabel = new Label("Try ali@example.com (Gold, 10% off).");
-        examplesLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 13px;");
+        Label helpText = new Label("Try ali@example.com (Gold, 10% off).");
+        helpText.setStyle("-fx-text-fill: #777; -fx-font-size: 13px;");
 
-        box.getChildren().addAll(membershipTitleBox,searchFieldHBox,examplesLabel);
+        box.getChildren().addAll(titleBox, searchBox, helpText);
         return box;
     }
 
@@ -141,53 +166,56 @@ public class App extends Application {
         box.getStyleClass().add("card");
         box.setPadding(new Insets(25));
 
-        //Add item
-        HBox addItemTitleBox = new HBox(10);
-        addItemTitleBox.setAlignment(Pos.CENTER_LEFT);
-        Label barcodeIcon = new Label("|||");
-        Label addItemLabel = new Label("Add item - scan barcode or type item name");
-        addItemTitleBox.getChildren().addAll(barcodeIcon, addItemLabel);
+        HBox titleBox = new HBox(10);
+        titleBox.setAlignment(Pos.CENTER_LEFT);
+        titleBox.getChildren().addAll(new Label("|||"), new Label("Add item - scan barcode or type item name"));
 
-        HBox addFieldHBox = new HBox(10);
+        HBox addBox = new HBox(10);
         TextField itemInput = new TextField();
         itemInput.setPromptText("e.g. 8801234500011 or Croissant");
         HBox.setHgrow(itemInput, Priority.ALWAYS);
-
         Button addBtn = new Button("Add");
         addBtn.getStyleClass().add("teal-button");
-        addFieldHBox.getChildren().addAll(itemInput, addBtn);
+        addBox.getChildren().addAll(itemInput, addBtn);
 
-        box.getChildren().addAll(addItemTitleBox, addFieldHBox);
+        box.getChildren().addAll(titleBox, addBox);
         return box;
-
     }
 
-    private VBox createCartSummary(){
+    private VBox createCartSection() {
+        VBox cart = new VBox(20);
+        cart.getStyleClass().add("card");
+        cart.setPrefWidth(380);
+        cart.setPadding(new Insets(25));
+
+        Label cartTitle = new Label("Cart (0)");
+        cartTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        Button chargeBtn = new Button("Charge RM 0.00");
+        chargeBtn.getStyleClass().add("button-charge");
+        chargeBtn.setMaxWidth(Double.MAX_VALUE);
+
+        cart.getChildren().addAll(cartTitle, spacer, createCartSummary(), chargeBtn);
+        return cart;
+    }
+
+    private VBox createCartSummary() {
         VBox box = new VBox(10);
-        box.setPadding(new Insets(10,0,10,0));
+        box.setPadding(new Insets(10, 0, 10, 0));
 
-        HBox subtotalBox = new HBox();
-        Label subLabel = new Label("Subtotal");
-        Label subPrice = new Label ("RM0.00");
-        subtotalBox.getChildren().addAll(subLabel, new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, subPrice);
-        
-        HBox discountBox = new HBox();
-        Label disLabel = new Label("Discount");
-        Label disPrice = new Label("-RM 0.00");
-        disPrice.setStyle("-fx-text-fill: #777;");
-        discountBox.getChildren().addAll(disLabel, new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, disPrice);
+        HBox subtotal = new HBox(new Label("Subtotal"), new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, new Label("RM0.00"));
+        HBox discount = new HBox(new Label("Discount"), new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, new Label("-RM 0.00"));
+        discount.getChildren().get(2).setStyle("-fx-text-fill: #777;");
 
-        Separator sep = new Separator();
-        sep.setPadding(new Insets (5, 0, 5, 0));
+        Label totalVal = new Label("RM 0.00");
+        totalVal.setStyle("-fx-font-size:20px; -fx-font-weight: bold; -fx-text-fill: #008B8B;");
+        HBox total = new HBox(new Label("Total") {{ setStyle("-fx-font-size: 18px; -fx-font-weight: bold;"); }}, 
+                             new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, totalVal);
 
-        HBox totalBox = new HBox();
-        Label totalLabel = new Label("Total");
-        totalLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-        Label totalPrice = new Label ("RM 0.00");
-        totalPrice.setStyle("-fx-font-size:20px; -fx-font-weight: bold; -fx-text-fill: #008B8B;");
-        totalBox.getChildren().addAll(totalLabel, new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, totalPrice);
-
-        box.getChildren().addAll(subtotalBox, discountBox, sep, totalBox);
+        box.getChildren().addAll(subtotal, discount, new Separator(), total);
         return box;
     }
 
