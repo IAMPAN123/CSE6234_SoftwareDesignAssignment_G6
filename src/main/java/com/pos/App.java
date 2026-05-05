@@ -2,23 +2,32 @@ package com.pos;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 
 import com.pos.db.DatabaseConfig;
 import com.pos.db.ProductDAO;
+import com.pos.db.TransactionDAO;
 import com.pos.model.Product;
+import com.pos.model.ShoppingCart;
+import com.pos.service.CheckoutFacade;
 import com.pos.ui.AdminPanel;
 import com.pos.ui.LoginPanel;
 import com.pos.ui.MembershipPage;
+import com.pos.ui.ReceiptPanel;
 
 import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -29,9 +38,17 @@ import javafx.stage.Stage;
 
 public class App extends Application {
     private ProductDAO productDAO;
+    private TransactionDAO transactionDAO;
+    private CheckoutFacade checkout;
     private FlowPane productGrid;
     private List<Product> products;
     private Button registerBtn;
+    private Label cartTitle;
+    private Label subtotalLabel;
+    private Label discountLabel;
+    private Label totalLabel;
+    private Button chargeBtn;
+    private VBox cartItemsBox;
 
     @Override
     public void start(Stage stage) {
@@ -39,17 +56,22 @@ public class App extends Application {
         try {
             DatabaseConfig.getInstance();
             productDAO = new ProductDAO();
+            transactionDAO = new TransactionDAO();
+            checkout = new CheckoutFacade(productDAO, transactionDAO);
             products = productDAO.getAllProducts();
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        // Add cart listener for real-time UI updates
+        checkout.getCart().addListener(this::updateCartDisplay);
 
         // 2. Set Theme
         Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
 
         // --- 3. Build Main POS Layout ---
         HBox navbar = createNavbar(stage);
-        
+
         VBox leftCol = new VBox(25);
         leftCol.setPadding(new Insets(30, 50, 30, 50));
         HBox.setHgrow(leftCol, Priority.ALWAYS);
@@ -90,7 +112,7 @@ public class App extends Application {
         applyStylesheet(loginScene);
 
         // --- 5. Link Admin Button to Login Scene ---
-        Button adminBtn = (Button) navbar.getChildren().get(2); 
+        Button adminBtn = (Button) navbar.getChildren().get(2);
         adminBtn.setOnAction(e -> stage.setScene(loginScene));
 
         if (registerBtn != null) {
@@ -126,6 +148,157 @@ public class App extends Application {
         } catch (Exception e) {
             System.out.println("Stylesheet error: " + e.getMessage());
         }
+    }
+
+    private void updateCartDisplay() {
+        ShoppingCart cart = checkout.getCart();
+        int itemCount = cart.getItemCount();
+        double total = cart.getTotal();
+
+        // Update totals and buttons
+        cartTitle.setText("Cart (" + itemCount + ")");
+        subtotalLabel.setText(String.format("RM%.2f", total));
+        discountLabel.setText(String.format("-RM %.2f", 0.0));
+        totalLabel.setText(String.format("RM %.2f", total));
+        chargeBtn.setText(String.format("Pay", total));
+
+        // Rebuild cart items list
+        cartItemsBox.getChildren().clear();
+
+        List<com.pos.model.CartItem> items = cart.getItems();
+        if (items.isEmpty()) {
+            Label emptyLabel = new Label("No items in cart");
+            emptyLabel.setStyle("-fx-text-fill: #999; -fx-font-size: 12px;");
+            cartItemsBox.getChildren().add(emptyLabel);
+        } else {
+            for (com.pos.model.CartItem cartItem : items) {
+                cartItemsBox.getChildren().add(createCartItemRow(cartItem));
+            }
+        }
+    }
+
+    private HBox createCartItemRow(com.pos.model.CartItem cartItem) {
+        HBox row = new HBox(8);
+        row.setPadding(new Insets(8));
+        row.setStyle("-fx-border-color: #DDD; -fx-border-radius: 2; -fx-background-color: white;");
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        // Product name
+        Label nameLabel = new Label(cartItem.getProduct().getName());
+        nameLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        HBox.setHgrow(nameLabel, Priority.ALWAYS);
+
+        // Quantity controls
+        Button minusBtn = new Button("-");
+        minusBtn.setPrefWidth(40);
+        minusBtn.setStyle("-fx-font-size: 12px;");
+        minusBtn.setOnAction(e -> handleDecreaseQuantity(cartItem));
+
+        Label qtyLabel = new Label(String.valueOf(cartItem.getQuantity()));
+        qtyLabel.setStyle("-fx-font-size: 12px; -fx-min-width: 30;");
+        qtyLabel.setAlignment(Pos.CENTER);
+
+        Button plusBtn = new Button("+");
+        plusBtn.setPrefWidth(40);
+        plusBtn.setStyle("-fx-font-size: 12px;");
+        plusBtn.setOnAction(e -> handleIncreaseQuantity(cartItem));
+
+        // Price
+        Label priceLabel = new Label(String.format("RM%.2f", cartItem.getSubtotal()));
+        priceLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #008B8B; -fx-font-weight: bold;");
+        priceLabel.setPrefWidth(70);
+
+        row.getChildren().addAll(nameLabel, minusBtn, qtyLabel, plusBtn, priceLabel);
+        return row;
+    }
+
+    private void handleIncreaseQuantity(com.pos.model.CartItem cartItem) {
+        cartItem.incrementQuantity();
+        updateCartDisplay();
+    }
+
+    private void handleDecreaseQuantity(com.pos.model.CartItem cartItem) {
+        if (cartItem.getQuantity() > 1) {
+            cartItem.setQuantity(cartItem.getQuantity() - 1);
+            updateCartDisplay();
+        } else {
+            checkout.getCart().removeItem(cartItem);
+            updateCartDisplay();
+        }
+    }
+
+    private void openPaymentDialog() {
+        if (checkout.getCart().isEmpty()) {
+            showAlert("Cart is empty. Please add items before checking out.");
+            return;
+        }
+
+        Stage dialogStage = new Stage();
+        VBox dialogBox = new VBox(15);
+        dialogBox.setPadding(new Insets(20));
+        dialogBox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Select Payment Method");
+        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        ToggleGroup paymentGroup = new ToggleGroup();
+
+        RadioButton cashRadio = new RadioButton("Cash");
+        cashRadio.setToggleGroup(paymentGroup);
+        cashRadio.setSelected(true);
+
+        RadioButton cardRadio = new RadioButton("Card");
+        cardRadio.setToggleGroup(paymentGroup);
+
+        RadioButton ewalletRadio = new RadioButton("E-Wallet");
+        ewalletRadio.setToggleGroup(paymentGroup);
+
+        VBox radioBox = new VBox(10);
+        radioBox.getChildren().addAll(cashRadio, cardRadio, ewalletRadio);
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+
+        Button confirmBtn = new Button("Confirm");
+        confirmBtn.setOnAction(e -> {
+            String selectedPayment = "CASH";
+            if (cardRadio.isSelected()) {
+                selectedPayment = "CARD";
+            } else if (ewalletRadio.isSelected()) {
+                selectedPayment = "EWALLET";
+            }
+
+            try {
+                com.pos.model.Receipt receipt = checkout.checkout(selectedPayment);
+                dialogStage.close();
+
+                new ReceiptPanel(receipt);
+                updateCartDisplay();
+            } catch (SQLException ex) {
+                showAlert("Error during checkout: " + ex.getMessage());
+            }
+        });
+
+        Button cancelBtn = new Button("Cancel");
+        cancelBtn.setOnAction(e -> dialogStage.close());
+
+        buttonBox.getChildren().addAll(confirmBtn, cancelBtn);
+
+        dialogBox.getChildren().addAll(title, radioBox, buttonBox);
+
+        Scene dialogScene = new Scene(dialogBox, 300, 250);
+        dialogStage.setScene(dialogScene);
+        dialogStage.setTitle("Payment");
+        dialogStage.setResizable(false);
+        dialogStage.showAndWait();
+    }
+
+    private void showAlert(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Notice");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     // --- UI Component Helpers ---
@@ -190,44 +363,101 @@ public class App extends Application {
         HBox.setHgrow(itemInput, Priority.ALWAYS);
         Button addBtn = new Button("Add");
         addBtn.getStyleClass().add("teal-button");
-        addBox.getChildren().addAll(itemInput, addBtn);
 
+        addBtn.setOnAction(e -> {
+            String input = itemInput.getText().trim();
+            if (input.isEmpty()) {
+                showAlert("Please enter a barcode or product name");
+                return;
+            }
+
+            try {
+                Product product = findProduct(input);
+                if (product == null) {
+                    showAlert("Product not found: " + input);
+                    return;
+                }
+
+                if (product.getStock() <= 0) {
+                    showAlert("Product out of stock: " + product.getName());
+                    return;
+                }
+
+                checkout.addToCart(product, 1);
+                itemInput.clear();
+            } catch (SQLException ex) {
+                showAlert("Error adding to cart: " + ex.getMessage());
+            }
+        });
+
+        addBox.getChildren().addAll(itemInput, addBtn);
         box.getChildren().addAll(titleBox, addBox);
         return box;
     }
 
+    private Product findProduct(String input) throws SQLException {
+        // Try barcode first
+        Product byBarcode = productDAO.getProductByBarcode(input);
+        if (byBarcode != null) {
+            return byBarcode;
+        }
+
+        // Try product name (case-insensitive)
+        for (Product p : products) {
+            if (p.getName().equalsIgnoreCase(input)) {
+                return p;
+            }
+        }
+
+        return null;
+    }
+
     private VBox createCartSection() {
-        VBox cart = new VBox(20);
+        VBox cart = new VBox(15);
         cart.getStyleClass().add("card");
         cart.setPrefWidth(380);
         cart.setPadding(new Insets(25));
 
-        Label cartTitle = new Label("Cart (0)");
+        cartTitle = new Label("Cart (0)");
         cartTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
-        Region spacer = new Region();
-        VBox.setVgrow(spacer, Priority.ALWAYS);
+        // Cart items list
+        cartItemsBox = new VBox(8);
+        cartItemsBox.setPadding(new Insets(10));
+        cartItemsBox.setStyle("-fx-background-color: #FAFAFA; -fx-border-color: #EEE; -fx-border-radius: 4;");
 
-        Button chargeBtn = new Button("Charge RM 0.00");
+        ScrollPane scrollPane = new ScrollPane(cartItemsBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-control-inner-background: #FAFAFA;");
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+
+        cart.getChildren().addAll(cartTitle, scrollPane, createCartSummary(), createChargeButton());
+        return cart;
+    }
+
+    private Button createChargeButton() {
+        chargeBtn = new Button("Charge RM 0.00");
         chargeBtn.getStyleClass().add("button-charge");
         chargeBtn.setMaxWidth(Double.MAX_VALUE);
-
-        cart.getChildren().addAll(cartTitle, spacer, createCartSummary(), chargeBtn);
-        return cart;
+        chargeBtn.setOnAction(e -> openPaymentDialog());
+        return chargeBtn;
     }
 
     private VBox createCartSummary() {
         VBox box = new VBox(10);
         box.setPadding(new Insets(10, 0, 10, 0));
 
-        HBox subtotal = new HBox(new Label("Subtotal"), new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, new Label("RM0.00"));
-        HBox discount = new HBox(new Label("Discount"), new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, new Label("-RM 0.00"));
-        discount.getChildren().get(2).setStyle("-fx-text-fill: #777;");
+        subtotalLabel = new Label("RM0.00");
+        HBox subtotal = new HBox(new Label("Subtotal"), new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, subtotalLabel);
 
-        Label totalVal = new Label("RM 0.00");
-        totalVal.setStyle("-fx-font-size:20px; -fx-font-weight: bold; -fx-text-fill: #008B8B;");
-        HBox total = new HBox(new Label("Total") {{ setStyle("-fx-font-size: 18px; -fx-font-weight: bold;"); }}, 
-                             new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, totalVal);
+        discountLabel = new Label("-RM 0.00");
+        discountLabel.setStyle("-fx-text-fill: #777;");
+        HBox discount = new HBox(new Label("Discount"), new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, discountLabel);
+
+        totalLabel = new Label("RM 0.00");
+        totalLabel.setStyle("-fx-font-size:20px; -fx-font-weight: bold; -fx-text-fill: #008B8B;");
+        HBox total = new HBox(new Label("Total") {{ setStyle("-fx-font-size: 18px; -fx-font-weight: bold;"); }},
+            new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, totalLabel);
 
         box.getChildren().addAll(subtotal, discount, new Separator(), total);
         return box;
@@ -236,10 +466,11 @@ public class App extends Application {
     private VBox createProductCard(Product product) {
         VBox box = new VBox(8);
         box.getStyleClass().add("product-card");
+        box.setStyle("-fx-cursor: hand;");
 
         Label barcode = new Label(product.getBarcode());
         barcode.setStyle("-fx-font-size:11px; -fx-text-fill: #AAA;");
-        
+
         Label name = new Label(product.getName());
         name.setStyle("-fx-font-size: 11px; -fx-text-fill: #AAA;");
         name.setWrapText(true);
@@ -256,6 +487,21 @@ public class App extends Application {
 
         bottom.getChildren().addAll(price, spacer, stock);
         box.getChildren().addAll(barcode, name, bottom);
+
+        // Add click handler to add to cart
+        box.setOnMouseClicked(e -> {
+            if (product.getStock() <= 0) {
+                showAlert("Product out of stock: " + product.getName());
+                return;
+            }
+
+            try {
+                checkout.addToCart(product, 1);
+            } catch (SQLException ex) {
+                showAlert("Error adding to cart: " + ex.getMessage());
+            }
+        });
+
         return box;
     }
 

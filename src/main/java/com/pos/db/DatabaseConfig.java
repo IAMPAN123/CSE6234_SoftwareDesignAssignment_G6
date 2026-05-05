@@ -32,7 +32,7 @@ public class DatabaseConfig {
     }
 
     private void initializeDatabase() throws SQLException {
-        String createTableSQL = "CREATE TABLE IF NOT EXISTS products (" +
+        String createProductsTableSQL = "CREATE TABLE IF NOT EXISTS products (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "barcode TEXT UNIQUE NOT NULL," +
                 "name TEXT NOT NULL," +
@@ -41,8 +41,20 @@ public class DatabaseConfig {
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ")";
 
+        String createTransactionsTableSQL = "CREATE TABLE IF NOT EXISTS transactions (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "timestamp TIMESTAMP NOT NULL," +
+                "items_json TEXT NOT NULL," +
+                "subtotal REAL NOT NULL," +
+                "discount REAL NOT NULL," +
+                "total REAL NOT NULL," +
+                "payment_method TEXT NOT NULL," +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                ")";
+
         try (Statement stmt = connection.createStatement()) {
-            stmt.execute(createTableSQL);
+            stmt.execute(createProductsTableSQL);
+            stmt.execute(createTransactionsTableSQL);
         }
     }
 
