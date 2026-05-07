@@ -11,7 +11,7 @@ target/
 .factorypath
 .vscode/
 bin/
-*.db/
+shop.db/
 # --- Operating System Junk ---
 Thumbs.db
 .DS_Store
