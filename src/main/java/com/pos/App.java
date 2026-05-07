@@ -2,7 +2,6 @@ package com.pos;
 
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 
 import com.pos.db.DatabaseConfig;
 import com.pos.db.ProductDAO;
@@ -24,9 +23,9 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
@@ -49,6 +48,7 @@ public class App extends Application {
     private Label totalLabel;
     private Button chargeBtn;
     private VBox cartItemsBox;
+    private com.pos.model.Member activeMember = null; // Add this line
 
     @Override
     public void start(Stage stage) {
@@ -102,7 +102,7 @@ public class App extends Application {
             () -> stage.setScene(shopScene), // Back button returns to Shop
             (success) -> {
                 if (success) {
-                    AdminPanel admin = new AdminPanel(() -> refreshProducts(stage));
+                    AdminPanel admin = new AdminPanel(this::refreshProducts);
                     admin.show();
                     stage.setScene(shopScene); // Stay on Shop screen after Admin launches
                 }
@@ -126,7 +126,7 @@ public class App extends Application {
 
     // --- Navigation & Refresh Helpers ---
 
-    private void refreshProducts(Stage stage) {
+    private void refreshProducts() {
         try {
             products = productDAO.getAllProducts();
             refreshProductGrid();
@@ -153,15 +153,24 @@ public class App extends Application {
     private void updateCartDisplay() {
         ShoppingCart cart = checkout.getCart();
         int itemCount = cart.getItemCount();
-        double total = cart.getTotal();
+        double subtotal = cart.getTotal(); 
+
+        // --- CALCULATION LOGIC ---
+        double discountAmount = 0.0;
+        if (activeMember != null) {
+            discountAmount = subtotal * 0.10; // 10% discount
+        }
+        
+        // REMOVE THE 'double' WORD HERE
+        double finalPrice = subtotal - discountAmount;
 
         // Update totals and buttons
         cartTitle.setText("Cart (" + itemCount + ")");
-        subtotalLabel.setText(String.format("RM%.2f", total));
+        subtotalLabel.setText(String.format("RM %.2f", subtotal));
         discountLabel.setText(String.format("-RM %.2f", 0.0));
-        totalLabel.setText(String.format("RM %.2f", total));
-        chargeBtn.setText(String.format("Pay", total));
-
+        discountLabel.setText(String.format("-RM %.2f", discountAmount));   
+        totalLabel.setText(String.format("RM %.2f", finalPrice));
+        
         // Rebuild cart items list
         cartItemsBox.getChildren().clear();
 
@@ -213,8 +222,12 @@ public class App extends Application {
     }
 
     private void handleIncreaseQuantity(com.pos.model.CartItem cartItem) {
-        cartItem.incrementQuantity();
-        updateCartDisplay();
+        if (cartItem.canIncrementQuantity()) {
+            cartItem.incrementQuantity();
+            updateCartDisplay();
+        } else {
+            showAlert("Cannot add more. Maximum stock for " + cartItem.getProduct().getName() + " is " + cartItem.getProduct().getStock());
+        }
     }
 
     private void handleDecreaseQuantity(com.pos.model.CartItem cartItem) {
@@ -273,6 +286,7 @@ public class App extends Application {
                 dialogStage.close();
 
                 new ReceiptPanel(receipt);
+                refreshProducts();  // Refresh products to update stock display
                 updateCartDisplay();
             } catch (SQLException ex) {
                 showAlert("Error during checkout: " + ex.getMessage());
@@ -337,6 +351,29 @@ public class App extends Application {
         Button findBtn = new Button("Find");
         findBtn.getStyleClass().add("teal-button");
         searchBox.getChildren().addAll(memberSearch, findBtn);
+
+        findBtn.setOnAction(e -> {
+        String input = memberSearch.getText().trim();
+        if (input.isEmpty()) return;
+
+        try {
+            com.pos.db.MembersDAO membersDAO = new com.pos.db.MembersDAO();
+            activeMember = membersDAO.findMember(input);
+
+            if (activeMember != null) {
+                memberSearch.setStyle("-fx-border-color: #2ecc71; -fx-border-width: 2px;");
+                updateCartDisplay(); // Refresh the numbers
+                showAlert("Member Found: Welcome back, " + activeMember.getName() + "!");
+            } else {
+                memberSearch.setStyle("-fx-border-color: #e74c3c; -fx-border-width: 2px;");
+                activeMember = null;
+                updateCartDisplay();
+                showAlert("Member not found.");
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    });
 
         Label helpText = new Label("Try ali@example.com (Gold, 10% off).");
         helpText.setStyle("-fx-text-fill: #777; -fx-font-size: 13px;");
@@ -482,8 +519,12 @@ public class App extends Application {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Label stock = new Label(product.getStock() + " LEFT");
-        stock.setStyle("-fx-font-size: 12px; -fx-text-fill: #AAA;");
+        String stockText = product.getStock() > 0 ? product.getStock() + " LEFT" : "OUT OF STOCK";
+        Label stock = new Label(stockText);
+        String stockStyle = product.getStock() > 0 
+            ? "-fx-font-size: 12px; -fx-text-fill: #AAA;" 
+            : "-fx-font-size: 12px; -fx-text-fill: #FF6B6B; -fx-font-weight: bold;";
+        stock.setStyle(stockStyle);
 
         bottom.getChildren().addAll(price, spacer, stock);
         box.getChildren().addAll(barcode, name, bottom);
