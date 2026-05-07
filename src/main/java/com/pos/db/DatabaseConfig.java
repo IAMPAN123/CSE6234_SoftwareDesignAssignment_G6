@@ -52,9 +52,29 @@ public class DatabaseConfig {
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ")";
 
+        String createMmebersTableSQL = "CREATE TABLE IF NOT EXISTS members (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "name TEXT NOT NULL," +
+                "email TEXT UNIQUE NOT NULL," +
+                "phone TEXT NOT NULL," +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                ")";
+
+        String createAdminsTableSQL = "CREATE TABLE IF NOT EXISTS admins (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "username TEXT UNIQUE NOT NULL," +
+                "password TEXT NOT NULL," +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                ")";
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(createProductsTableSQL);
             stmt.execute(createTransactionsTableSQL);
+            stmt.execute(createMmebersTableSQL);
+            stmt.execute(createAdminsTableSQL);
+
+            String seedAdminSQL = "INSERT OR IGNORE INTO admins(username, password) VALUES('admin', '1234')"; 
+            stmt.execute(seedAdminSQL);
         }
     }
 
