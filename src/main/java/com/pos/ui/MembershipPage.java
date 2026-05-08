@@ -2,7 +2,6 @@ package com.pos.ui;
 
 import java.sql.SQLException;
 
-import com.pos.db.ActionLogDAO;
 import com.pos.db.MembersDAO;
 
 import javafx.geometry.Insets;
@@ -66,10 +65,6 @@ public class MembershipPage {
                     return;
                 }
                 membersDAO.addMember(name, email, phone);
-
-                ActionLogDAO actionLog = new ActionLogDAO();
-                actionLog.logAction("REGISTER_MEMBER",
-                "Name: " + name + ", Email: " + email + ", Phone: " + phone);
 
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Member registered successfully!");
                  onBackAction.run();

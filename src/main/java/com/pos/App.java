@@ -1,7 +1,5 @@
 package com.pos;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -11,7 +9,6 @@ import com.pos.db.TransactionDAO;
 import com.pos.model.Product;
 import com.pos.model.ShoppingCart;
 import com.pos.service.CheckoutFacade;
-import com.pos.session.POSSession;
 import com.pos.ui.AdminPanel;
 import com.pos.ui.LoginPanel;
 import com.pos.ui.MembershipPage;
@@ -55,8 +52,6 @@ public class App extends Application {
 
     @Override
     public void start(Stage stage) {
-    com.pos.session.POSSession.clear(); //set as default to Guest on app start
-
         // 1. Initialize Database
         try {
             DatabaseConfig.getInstance();
@@ -107,18 +102,6 @@ public class App extends Application {
             () -> stage.setScene(shopScene), // Back button returns to Shop
             (success) -> {
                 if (success) {
-                    // Fetch admin ID from DB (assumes 'admin' user exists with id=1)
-                    try {
-                        String sql = "SELECT id FROM admins WHERE username = 'admin'";
-                        try (PreparedStatement stmt = DatabaseConfig.getInstance().getConnection().prepareStatement(sql);
-                            ResultSet rs = stmt.executeQuery()) {
-                            if (rs.next()) {
-                                POSSession.setCurrentUser(rs.getInt("id"), "Admin", "admin");
-                            }
-                        }
-                    } catch (SQLException ex) {
-                        ex.printStackTrace();
-                    }
                     AdminPanel admin = new AdminPanel(this::refreshProducts);
                     admin.show();
                     stage.setScene(shopScene); // Stay on Shop screen after Admin launches
@@ -378,12 +361,10 @@ public class App extends Application {
             activeMember = membersDAO.findMember(input);
 
             if (activeMember != null) {
-                POSSession.setCurrentUser(activeMember.getId(), "Member", activeMember.getName());
                 memberSearch.setStyle("-fx-border-color: #2ecc71; -fx-border-width: 2px;");
                 updateCartDisplay(); // Refresh the numbers
                 showAlert("Member Found: Welcome back, " + activeMember.getName() + "!");
             } else {
-                POSSession.clear(); // back to Guest
                 memberSearch.setStyle("-fx-border-color: #e74c3c; -fx-border-width: 2px;");
                 activeMember = null;
                 updateCartDisplay();

@@ -2,7 +2,6 @@ package com.pos.ui;
 
 import java.sql.SQLException;
 
-import com.pos.db.ActionLogDAO;
 import com.pos.db.ProductDAO;
 import com.pos.model.Product;
 
@@ -102,11 +101,6 @@ public class AdminPanel {
                     clearFields(barcodeField, nameField, priceField, stockField);
                     refreshProductTable();
                     onProductsChanged.run();
-
-                    // Log the action
-                    ActionLogDAO actionLog = new ActionLogDAO();
-                    actionLog.logAction("ADD_PRODUCT",
-                    "Product: " + product.getName() + " (barcode: " + product.getBarcode() + ", price: RM" + product.getPrice() + ", stock: " + product.getStock() + ")");
                 }
             } catch (SQLException ex) {
                 ex.printStackTrace();
@@ -181,9 +175,6 @@ public class AdminPanel {
                     Product product = getTableView().getItems().get(getIndex());
                     try {
                         productDAO.deleteProduct(product.getId());
-                        ActionLogDAO actionLog = new ActionLogDAO();
-                        actionLog.logAction("DELETE_PRODUCT",
-                        "ID: " + product.getId() + ", Name: " + product.getName());
                         refreshProductTable();
                         onProductsChanged.run();
                     } catch (SQLException ex) {
@@ -251,10 +242,6 @@ public class AdminPanel {
                     product.setPrice(Double.parseDouble(priceField.getText().trim()));
                     product.setStock(Integer.parseInt(stockField.getText().trim()));
                     productDAO.updateProduct(product);
-                    ActionLogDAO actionLog = new ActionLogDAO();
-                    actionLog.logAction("EDIT_PRODUCT",
-                        "ID: " + product.getId() + ", updated to - Name: " + product.getName() + ", Price: RM" + product.getPrice() + ", Stock: " + product.getStock());
-                    
                     refreshProductTable();
                     onProductsChanged.run();
                     stage.close();

@@ -1,8 +1,5 @@
 package com.pos.ui;
-import java.sql.SQLException;
 import java.util.function.Consumer;
-
-import com.pos.db.ActionLogDAO;
 
 import javafx.geometry.Insets; 
 import javafx.geometry.Pos;
@@ -51,14 +48,6 @@ public class LoginPanel {
             // Hardcoded for now; can be replaced with a Database check
             if ("admin".equals(username.getText()) && "1234".equals(password.getText())) {
                 onLoginResult.accept(true);
-                // After successful verification
-                try {
-                    ActionLogDAO actionLog = new ActionLogDAO();
-                    actionLog.logAction("LOGIN", "Admin login: " + username.getText());
-                } catch (SQLException ex) {
-                    Alert alert = new Alert(Alert.AlertType.ERROR, "Database error: " + ex.getMessage());
-                    alert.show();
-                }
             } else {
                 Alert alert = new Alert(Alert.AlertType.ERROR, "Invalid Credentials");
                 alert.show();
