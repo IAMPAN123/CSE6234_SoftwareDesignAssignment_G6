@@ -100,7 +100,6 @@ public class CheckoutFacade {
         for (int i = 0; i < items.size(); i++) {
             CartItem item = items.get(i);
             itemsJson.append("{")
-                .append("\"id\":").append(item.getProduct().getId()).append(",")
                 .append("\"name\":\"").append(item.getProduct().getName()).append("\",")
                 .append("\"quantity\":").append(item.getQuantity()).append(",")
                 .append("\"price\":").append(item.getProduct().getPrice())
