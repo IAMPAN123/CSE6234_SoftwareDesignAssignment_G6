@@ -1,13 +1,21 @@
 package com.pos.ui;
 
+import java.io.File;
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.LocalDate;
 
+import com.pos.db.DatabaseConfig;
 import com.pos.db.ProductDAO;
 import com.pos.model.Product;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
@@ -18,6 +26,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 public class AdminPanel {
@@ -41,8 +50,17 @@ public class AdminPanel {
             root.setPadding(new Insets(20));
             root.setStyle("-fx-background-color: #F8FAFB;");
 
+            // Toolbar with export button
+            HBox toolbar = new HBox(10);
+            toolbar.setAlignment(Pos.CENTER_RIGHT);
+            Button exportLogsBtn = new Button("Export Action Logs to CSV");
+            exportLogsBtn.getStyleClass().add("teal-button");
+            exportLogsBtn.setOnAction(e -> exportActionLogsToCSV());
+            toolbar.getChildren().add(exportLogsBtn);
+
             root.getChildren().addAll(
                     createAddProductSection(),
+                    toolbar,
                     createProductsTableSection()
             );
 
@@ -305,5 +323,70 @@ public class AdminPanel {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    // ==================== EXPORT ACTION LOGS ====================
+
+    private void exportActionLogsToCSV() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Action Logs");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("CSV Files", "*.csv")
+        );
+        fileChooser.setInitialFileName("action_logs_" + LocalDate.now() + ".csv");
+        File file = fileChooser.showSaveDialog(null);
+        if (file == null) return;
+
+        String sql = "SELECT id, user_id, user_role, action, action_details, products_json, timestamp " +
+                     "FROM action_logs ORDER BY id DESC";
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql);
+             PrintWriter writer = new PrintWriter(file)) {
+
+            // Write CSV header
+            writer.println("ID,User ID,User Role,Action,Action Details,Products JSON,Timestamp");
+
+            // Write rows
+            while (rs.next()) {
+                StringBuilder line = new StringBuilder();
+                line.append(rs.getInt("id")).append(",");
+
+                Object userId = rs.getObject("user_id");
+                line.append(userId == null ? "" : userId).append(",");
+
+                line.append(escapeCsv(rs.getString("user_role"))).append(",");
+                line.append(escapeCsv(rs.getString("action"))).append(",");
+                line.append(escapeCsv(rs.getString("action_details"))).append(",");
+                line.append(escapeCsv(rs.getString("products_json"))).append(",");
+                line.append(escapeCsv(rs.getString("timestamp")));
+
+                writer.println(line);
+            }
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Export Complete");
+            alert.setHeaderText(null);
+            alert.setContentText("Action logs exported to:\n" + file.getAbsolutePath());
+            alert.showAndWait();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Failed");
+            alert.setHeaderText(null);
+            alert.setContentText("Error exporting logs: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            value = value.replace("\"", "\"\"");
+            return "\"" + value + "\"";
+        }
+        return value;
     }
 }

@@ -1,5 +1,9 @@
 package com.pos.service;
 
+import java.sql.SQLException;
+import java.util.List;
+
+import com.pos.db.ActionLogDAO;
 import com.pos.db.ProductDAO;
 import com.pos.db.TransactionDAO;
 import com.pos.model.CartItem;
@@ -10,19 +14,17 @@ import com.pos.model.Transaction;
 import com.pos.payment.PaymentFactory;
 import com.pos.payment.PaymentMethod;
 
-import java.sql.SQLException;
-import java.time.LocalDateTime;
-import java.util.List;
-
 public class CheckoutFacade {
     private ShoppingCart cart;
     private ProductDAO productDAO;
     private TransactionDAO transactionDAO;
+    private ActionLogDAO actionLogDAO;
 
-    public CheckoutFacade(ProductDAO productDAO, TransactionDAO transactionDAO) {
+    public CheckoutFacade(ProductDAO productDAO, TransactionDAO transactionDAO) throws SQLException {
         this.cart = new ShoppingCart();
         this.productDAO = productDAO;
         this.transactionDAO = transactionDAO;
+        this.actionLogDAO = new ActionLogDAO();
     }
 
     public void addToCart(Product product, int quantity) throws SQLException {
@@ -59,6 +61,23 @@ public class CheckoutFacade {
         List<CartItem> items = cart.getItems();
         Receipt receipt = new Receipt(items, total, payment.getPaymentType());
 
+        StringBuilder productsJson = new StringBuilder("[");
+        for (int i = 0; i < items.size(); i++) {
+            CartItem item = items.get(i);
+            productsJson.append("{")
+                .append("\"name\":\"").append(item.getProduct().getName()).append("\",")
+                .append("\"quantity\":").append(item.getQuantity()).append(",")
+                .append("\"price\":").append(item.getProduct().getPrice())
+                .append("}");
+            if (i < items.size() - 1) productsJson.append(",");
+        }
+        productsJson.append("]");
+
+        // Log the checkout action
+        actionLogDAO.logAction("CHECKOUT",
+        "Payment: " + paymentType + ", Total: RM" + String.format("%.2f", total),
+        productsJson.toString());
+
         updateInventory(items);
         saveTransaction(receipt);
 
@@ -81,7 +100,6 @@ public class CheckoutFacade {
         for (int i = 0; i < items.size(); i++) {
             CartItem item = items.get(i);
             itemsJson.append("{")
-                .append("\"id\":").append(item.getProduct().getId()).append(",")
                 .append("\"name\":\"").append(item.getProduct().getName()).append("\",")
                 .append("\"quantity\":").append(item.getQuantity()).append(",")
                 .append("\"price\":").append(item.getProduct().getPrice())
