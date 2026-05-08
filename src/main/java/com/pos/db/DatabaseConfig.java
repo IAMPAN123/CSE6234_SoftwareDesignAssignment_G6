@@ -67,10 +67,21 @@ public class DatabaseConfig {
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ")";
 
+        String createActionLogsTableSQL = "CREATE TABLE IF NOT EXISTS action_logs (" +
+            "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "user_id INTEGER," +
+            "user_role TEXT NOT NULL," +
+            "action TEXT NOT NULL," +
+            "action_details TEXT," +
+            "products_json TEXT," +
+            "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+            ")";
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(createProductsTableSQL);
             stmt.execute(createTransactionsTableSQL);
             stmt.execute(createMmebersTableSQL);
+            stmt.execute(createActionLogsTableSQL);
             stmt.execute(createAdminsTableSQL);
 
             String seedAdminSQL = "INSERT OR IGNORE INTO admins(username, password) VALUES('admin', '1234')"; 

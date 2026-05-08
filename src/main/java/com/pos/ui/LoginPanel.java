@@ -1,6 +1,8 @@
 package com.pos.ui;
 import java.util.function.Consumer;
 
+import com.pos.db.ActionLogDAO;
+
 import javafx.geometry.Insets; 
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -48,6 +50,11 @@ public class LoginPanel {
             // Hardcoded for now; can be replaced with a Database check
             if ("admin".equals(username.getText()) && "1234".equals(password.getText())) {
                 onLoginResult.accept(true);
+                try {
+                    new ActionLogDAO().logAction("LOGIN", "Admin login: " + username.getText());
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
             } else {
                 Alert alert = new Alert(Alert.AlertType.ERROR, "Invalid Credentials");
                 alert.show();
