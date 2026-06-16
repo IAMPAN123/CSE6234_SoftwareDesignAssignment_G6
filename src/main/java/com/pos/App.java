@@ -299,7 +299,7 @@ public class App extends Application {
             }
 
             try {
-                com.pos.model.Receipt receipt = checkout.checkout(selectedPayment);
+                 com.pos.model.Receipt receipt = checkout.checkout(selectedPayment);
                 dialogStage.close();
 
                 new ReceiptPanel(receipt);
