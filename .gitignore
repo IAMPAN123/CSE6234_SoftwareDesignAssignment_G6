@@ -15,3 +15,6 @@ shop.db/
 # --- Operating System Junk ---
 Thumbs.db
 .DS_Store
+
+# --- Database files ---
+shop.db
